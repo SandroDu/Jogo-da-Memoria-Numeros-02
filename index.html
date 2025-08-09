@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jogo da Memória - 4 Telas</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #87CEEB url('https://i.gifer.com/origin/2b/2b676fbef17e20a64c2617999a51b20e.gif') no-repeat center center fixed;
+    background-size: cover;
+    overflow-x: hidden;
+  }
+  .screen {
+    display: none;
+    padding: 20px;
+    min-height: 100vh;
+    color: #000;
+    text-align: center;
+    background: rgba(255 255 255 / 0.75);
+    box-sizing: border-box;
+  }
+  .active {
+    display: block;
+  }
+  #menu {
+    font-size: 20px;
+  }
+  #menu input {
+    font-size: 20px;
+    padding: 8px;
+    width: 220px;
+    margin-bottom: 20px;
+  }
+  #menu button {
+    display: block;
+    margin: 10px auto;
+    width: 200px;
+    padding: 15px 0;
+    font-size: 20px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #btnNivel1 {
+    background-color: #28a745;
+    color: black;
+    font-weight: 700;
+  }
+  #btnNivel2 {
+    background-color: #ffc107;
+    color: black;
+    font-weight: 700;
+  }
+  #btnNivel3 {
+    background-color: #dc3545;
+    color: black;
+    font-weight: 700;
+  }
+  .cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+  }
+  .card {
+    width: 200px;
+    height: 200px;
+    background-color: #fff;
+    border: 2px solid #333;
+    border-radius: 10px;
+    font-size: 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s, color 0.3s;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+  .card.number {
+    font-weight: bold;
+  }
+  .hidden {
+    background-color: #ddd;
+    color: transparent;
+  }
+  .correct {
+    background-color: #90ee90 !important;
+    color: #000 !important;
+    cursor: default;
+  }
+  .wrong {
+    background-color: #f08080 !important;
+    color: #000 !important;
+  }
+  #level3 .card {
+    flex-direction: column;
+    font-size: 32px;
+    white-space: pre-line;
+  }
+  #level3 .card.number {
+    font-size: 100px;
+    line-height: 1;
+  }
+  .popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border: 2px solid #333;
+    padding: 20px 30px;
+    border-radius: 10px;
+    display: none;
+    z-index: 100;
+    font-size: 24px;
+  }
+  .popup button {
+    margin-top: 15px;
+    padding: 10px 20px;
+    font-size: 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+  }
+  #level2 #backMenuBtn,
+  #level1 #backMenuBtn,
+  #level3 #backMenuBtn {
+    margin-top: 25px;
+    padding: 12px 30px;
+    font-size: 20px;
+    background: none;
+    border: none;
+    color: black;
+    cursor: pointer;
+    text-decoration: underline;
+    display: inline-block;
+  }
+  #level2 #backMenuBtn:hover,
+  #level1 #backMenuBtn:hover,
+  #level3 #backMenuBtn:hover {
+    color: #007bff;
+  }
+</style>
+</head>
+<body>
+
+<div id="menu" class="screen active">
+  <h1>Jogo da Memória</h1>
+  <input type="text" id="playerName" placeholder="Digite seu nome" />
+  <br />
+  <button id="btnNivel1" onclick="startLevel(1)">Nível 01</button>
+  <button id="btnNivel2" onclick="startLevel(2)">Nível 02</button>
+  <button id="btnNivel3" onclick="startLevel(3)">Nível 03</button>
+</div>
+
+<div id="level1" class="screen">
+  <h2>Nível 01</h2>
+  <div class="cards" id="cards1"></div>
+  <button id="backMenuBtn" onclick="backToMenu('level1')">Voltar ao Menu</button>
+</div>
+
+<div id="level2" class="screen">
+  <h2>Nível 02</h2>
+  <div class="cards" id="cards2"></div>
+  <button id="backMenuBtn" onclick="backToMenu('level2')">Voltar ao Menu</button>
+</div>
+
+<div id="level3" class="screen">
+  <h2>Nível 03</h2>
+  <div class="cards" id="cards3"></div>
+  <button id="backMenuBtn" onclick="backToMenu('level3')">Voltar ao Menu</button>
+</div>
+
+<div class="popup" id="popup">
+  <p id="popupText"></p>
+  <button id="popupBtn" onclick="closePopup()">Continuar</button>
+</div>
+
+<script>
+  let firstCard = null;
+  let secondCard = null;
+  let lockBoard = false;
+  let matchedPairs = 0;
+  let isWaitingForContinue = false;
+  let lastWrongCards = [];
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function backToMenu(levelId) {
+    if(levelId === 'level1') resetLevel1();
+    else if(levelId === 'level2') resetLevel2();
+    else if(levelId === 'level3') resetLevel3();
+    showScreen('menu');
+  }
+
+  function startLevel(level) {
+    matchedPairs = 0;
+    firstCard = null;
+    secondCard = null;
+    lockBoard = false;
+    isWaitingForContinue = false;
+    lastWrongCards = [];
+
+    if(level === 1) {
+      setupLevel1();
+      showScreen('level1');
+    } else if(level === 2) {
+      setupLevel2();
+      showScreen('level2');
+    } else if(level === 3) {
+      setupLevel3();
+      showScreen('level3');
+    }
+  }
+
+  function createCard(content, value, options = {}) {
+    const card = document.createElement('div');
+    card.classList.add('card');
+    if(options.isBig) card.style.fontSize = options.isNumber ? '100px' : '32px';
+    if(options.isBig) card.style.flexDirection = 'column';
+    if(options.isNumber) card.classList.add('number');
+    card.textContent = content;
+    card.dataset.value = value;
+    card.dataset.type = options.type || 'generic';
+    card.classList.add('hidden');
+    card.addEventListener('click', () => flipCard(card));
+    return card;
+  }
+
+  function flipCard(card) {
+    if(lockBoard || !card.classList.contains('hidden') || card === firstCard) return;
+    if(isWaitingForContinue) return;
+
+    card.classList.remove('hidden');
+
+    if(!firstCard) {
+      firstCard = card;
+    } else {
+      secondCard = card;
+      lockBoard = true;
+      setTimeout(checkMatch, 2000);
+    }
+  }
+
+  function checkMatch() {
+    if(document.getElementById('level3').classList.contains('active')) {
+      if(firstCard.dataset.type === secondCard.dataset.type) {
+        markWrong();
+        return;
+      }
+    }
+    if(firstCard.dataset.value === secondCard.dataset.value) {
+      markCorrect();
+    } else {
+      markWrong();
+    }
+  }
+
+  function markCorrect() {
+    firstCard.classList.add('correct');
+    secondCard.classList.add('correct');
+    matchedPairs++;
+    showPopup("Parabéns! Você acertou!");
+    // libera o tabuleiro só após o clique em continuar
+    isWaitingForContinue = true;
+  }
+
+  function markWrong() {
+    firstCard.classList.add('wrong');
+    secondCard.classList.add('wrong');
+    lastWrongCards = [firstCard, secondCard];
+    showPopup("Você errou! Tente novamente!");
+    isWaitingForContinue = true;
+  }
+
+  function showPopup(text) {
+    const popup = document.getElementById('popup');
+    const popupText = document.getElementById('popupText');
+    popupText.textContent = text;
+    popup.style.display = 'block';
+  }
+
+  function closePopup() {
+    const popup = document.getElementById('popup');
+    popup.style.display = 'none';
+
+    if(lastWrongCards.length) {
+      lastWrongCards.forEach(c => {
+        c.classList.remove('wrong');
+        c.classList.add('hidden');
+      });
+      lastWrongCards = [];
+    }
+    firstCard = null;
+    secondCard = null;
+    lockBoard = false;
+    isWaitingForContinue = false;
+  }
+
+  function resetLevel1() {
+    const container = document.getElementById('cards1');
+    container.innerHTML = '';
+  }
+  function resetLevel2() {
+    const container = document.getElementById('cards2');
+    container.innerHTML = '';
+  }
+  function resetLevel3() {
+    const container = document.getElementById('cards3');
+    container.innerHTML = '';
+  }
+
+  function setupLevel1() {
+    const container = document.getElementById('cards1');
+    container.innerHTML = '';
+    const emojis = ['🍎', '🍌', '🍇', '🍓', '🍒', '🍍'];
+    let cards = [];
+    for(let i=0; i<=5; i++) {
+      cards.push(createCard(i.toString(), i.toString(), {type:'number'}));
+      cards.push(createCard(emojis[i].repeat(i), i.toString(), {type:'figure'}));
+    }
+    shuffle(cards);
+    cards.forEach(c => container.appendChild(c));
+  }
+
+  function setupLevel2() {
+    const container = document.getElementById('cards2');
+    container.innerHTML = '';
+    const emojis = ['🍎', '🍌', '🍇', '🍓', '🍒', '🍍', '🥝', '🍉', '🍑', '🍈', '🥥'];
+    let cards = [];
+    for(let i=0; i<=10; i++) {
+      cards.push(createCard(i.toString(), i.toString(), {type:'number'}));
+      cards.push(createCard(emojis[i].repeat(i), i.toString(), {type:'figure'}));
+    }
+    shuffle(cards);
+    cards.forEach(c => container.appendChild(c));
+  }
+
+  function setupLevel3() {
+    const container = document.getElementById('cards3');
+    container.innerHTML = '';
+    const emojis = ['🍎', '🍌', '🍇', '🍓', '🍒', '🍍'];
+
+    const maxReps = 4;
+    let counts = {0:0,1:0,2:0,3:0,4:0,5:0};
+    let numericValues = [];
+    while(numericValues.length < 16) {
+      let n = Math.floor(Math.random()*6);
+      if(counts[n] < maxReps) {
+        counts[n]++;
+        numericValues.push(n);
+      }
+    }
+
+    let numericCards = numericValues.map(n => createCard(n.toString(), n.toString(), {type:'number', isBig:true, isNumber:true}));
+
+    let figureCards = [];
+    let usedPairs = new Set();
+    function pairKey(a,b){ return a<=b ? `${a},${b}` : `${b},${a}`; }
+    for(let n of numericValues) {
+      let tries = 0;
+      let a,b;
+      do {
+        a = Math.floor(Math.random()*6);
+        b = n - a;
+        tries++;
+        if(b<0 || b>5) continue;
+      } while ((b<0 || b>5) || usedPairs.has(pairKey(a,b)) && tries < 20);
+      usedPairs.add(pairKey(a,b));
+      let somaContent = `${emojis[a].repeat(a)}\n+\n${emojis[b].repeat(b)}`;
+      figureCards.push(createCard(somaContent, n.toString(), {type:'figure', isBig:true, isNumber:false}));
+    }
+
+    let allCards = numericCards.concat(figureCards);
+    shuffle(allCards);
+    allCards.forEach(c => container.appendChild(c));
+  }
+
+  function shuffle(array) {
+    for(let i = array.length -1; i>0; i--) {
+      let j = Math.floor(Math.random()*(i+1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+</script>
+
+</body>
+</html>
